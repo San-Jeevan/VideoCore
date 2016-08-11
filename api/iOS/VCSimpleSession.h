@@ -133,6 +133,10 @@ typedef NS_ENUM(NSInteger, VCFilter) {
                     andStreamKey:(NSString*) streamKey;
 
 - (void) endRtmpSession;
+- (void) endRtmpSessionHard;
+- (void) removeVideo;
+- (void) addVideo;
+
 
 - (void) getCameraPreviewLayer: (AVCaptureVideoPreviewLayer**) previewLayer;
 

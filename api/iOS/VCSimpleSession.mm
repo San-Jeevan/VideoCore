@@ -505,7 +505,7 @@ namespace videocore { namespace simpleApi {
     self.aspectMode = aspectMode;
     self.onlyAudio = onlyAudio;
     
-    _previewView = [[VCPreviewView alloc] init];
+    //_previewView = [[VCPreviewView alloc] init];
     self.videoZoomFactor = 1.f;
     
     _cameraState = cameraState;
@@ -668,21 +668,48 @@ namespace videocore { namespace simpleApi {
     
     m_outputSession->setSessionParameters(sp);
 }
+
+- (void) endRtmpSessionHard {
+    [self endRtmpSession];
+    m_audioMixer.reset();
+    m_videoMixer.reset();
+    m_videoSplit.reset();
+    m_aspectTransform.reset();
+    m_positionTransform.reset();
+    m_micSource.reset();
+    m_cameraSource.reset();
+    m_pbOutput.reset();
+    [_previewView release];
+    _previewView = nil;
+}
+
 - (void) endRtmpSession
 {
-    
     m_h264Packetizer.reset();
-    m_aacPacketizer.reset();
-    m_videoSplit->removeOutput(m_h264Encoder);
+    if(m_h264Encoder != nullptr) {
+        m_videoSplit->removeOutput(m_h264Encoder);
+    }
     m_h264Encoder.reset();
+    m_aacPacketizer.reset();
     m_aacEncoder.reset();
-    
     m_outputSession.reset();
-    
-    _bitrate = _bpsCeiling;
-    
     self.rtmpSessionState = VCSessionStateEnded;
 }
+
+- (void) removeVideo
+{
+    m_h264Packetizer.reset();
+    m_videoSplit->removeOutput(m_h264Encoder);
+    m_h264Encoder.reset();
+}
+
+- (void) addVideo
+{
+    m_h264Packetizer.reset();
+    m_videoSplit->removeOutput(m_h264Encoder);
+    m_h264Encoder.reset();
+}
+
 - (void) getCameraPreviewLayer:(AVCaptureVideoPreviewLayer **)previewLayer {
     if(m_cameraSource) {
         m_cameraSource->getPreviewLayer((void**)previewLayer);
@@ -749,15 +776,15 @@ namespace videocore { namespace simpleApi {
 #ifdef TARGET_OS_IPHONE
     
     
-    {
+    {  if(!_onlyAudio) {
         // Add video mixer
         m_videoMixer = std::make_shared<videocore::iOS::GLESVideoMixer>(self.videoSize.width,
                                                                         self.videoSize.height,
                                                                         frameDuration);
-        
+    }
     }
     
-    {
+    {if(!_onlyAudio) {
         auto videoSplit = std::make_shared<videocore::Split>();
         
         m_videoSplit = videoSplit;
@@ -775,6 +802,7 @@ namespace videocore { namespace simpleApi {
         
         m_videoMixer->setOutput(videoSplit);
         
+    }
     }
     
     
@@ -839,36 +867,39 @@ namespace videocore { namespace simpleApi {
         // Add encoders
         
         m_aacEncoder = std::make_shared<videocore::iOS::AACEncode>(self.audioSampleRate, self.audioChannelCount, 96000);
-        if(SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
-            // If >= iOS 8.0 use the VideoToolbox encoder that does not write to disk.
-            m_h264Encoder = std::make_shared<videocore::Apple::H264Encode>(self.videoSize.width,
-                                                                           self.videoSize.height,
-                                                                           self.fps,
-                                                                           self.bitrate,
-                                                                           false,
-                                                                           ctsOffset);
-        } else {
-            m_h264Encoder =std::make_shared<videocore::iOS::H264Encode>(self.videoSize.width,
-                                                                        self.videoSize.height,
-                                                                        self.fps,
-                                                                        self.bitrate);
+        if(!_onlyAudio) {
+            if(SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
+                // If >= iOS 8.0 use the VideoToolbox encoder that does not write to disk.
+                m_h264Encoder = std::make_shared<videocore::Apple::H264Encode>(self.videoSize.width,
+                                                                               self.videoSize.height,
+                                                                               self.fps,
+                                                                               self.bitrate,
+                                                                               false,
+                                                                               ctsOffset);
+            } else {
+                m_h264Encoder =std::make_shared<videocore::iOS::H264Encode>(self.videoSize.width,
+                                                                            self.videoSize.height,
+                                                                            self.fps,
+                                                                            self.bitrate);
+            }
         }
         m_audioMixer->setOutput(m_aacEncoder);
-        m_videoSplit->setOutput(m_h264Encoder);
-        
+        if(!_onlyAudio) {
+            m_videoSplit->setOutput(m_h264Encoder);
+        }
     }
     {
         m_aacSplit = std::make_shared<videocore::Split>();
-        m_h264Split = std::make_shared<videocore::Split>();
+        if(!_onlyAudio) { m_h264Split = std::make_shared<videocore::Split>(); }
         m_aacEncoder->setOutput(m_aacSplit);
-        m_h264Encoder->setOutput(m_h264Split);
+        if(!_onlyAudio) {m_h264Encoder->setOutput(m_h264Split);}
         
     }
     {
-        m_h264Packetizer = std::make_shared<videocore::rtmp::H264Packetizer>(ctsOffset);
+        if(!_onlyAudio) { m_h264Packetizer = std::make_shared<videocore::rtmp::H264Packetizer>(ctsOffset);}
         m_aacPacketizer = std::make_shared<videocore::rtmp::AACPacketizer>(self.audioSampleRate, self.audioChannelCount, ctsOffset);
         
-        m_h264Split->setOutput(m_h264Packetizer);
+        if(!_onlyAudio) { m_h264Split->setOutput(m_h264Packetizer);}
         m_aacSplit->setOutput(m_aacPacketizer);
         
     }
@@ -883,7 +914,7 @@ namespace videocore { namespace simpleApi {
     }
     
     
-    m_h264Packetizer->setOutput(m_outputSession);
+    if(!_onlyAudio) {  m_h264Packetizer->setOutput(m_outputSession);}
     m_aacPacketizer->setOutput(m_outputSession);
     
     
