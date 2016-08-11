@@ -1,9 +1,9 @@
 /*
-
+ 
  Video Core
  Copyright (c) 2014 James G. Hurley
-
-
+ 
+ 
  */
 
 /*!
@@ -27,7 +27,7 @@ typedef NS_ENUM(NSInteger, VCSessionState)
     VCSessionStateStarted,
     VCSessionStateEnded,
     VCSessionStateError
-
+    
 };
 
 typedef NS_ENUM(NSInteger, VCCameraState)
@@ -86,6 +86,7 @@ typedef NS_ENUM(NSInteger, VCFilter) {
 @property (nonatomic, assign) BOOL          useAdaptiveBitrate;     /* Default is off */
 @property (nonatomic, readonly) int         estimatedThroughput;    /* Bytes Per Second. */
 @property (nonatomic, assign) VCAspectMode  aspectMode;
+@property (nonatomic, assign) BOOL          onlyAudio;
 
 @property (nonatomic, assign) VCFilter      filter; /* Default is VCFilterNormal*/
 
@@ -115,6 +116,15 @@ typedef NS_ENUM(NSInteger, VCFilter) {
                            bitrate:(int)bps
            useInterfaceOrientation:(BOOL)useInterfaceOrientation
                        cameraState:(VCCameraState) cameraState
+                         onlyAudio:(BOOL) onlyAudio;
+
+// -----------------------------------------------------------------------------
+- (instancetype) initWithVideoSize:(CGSize)videoSize
+                         frameRate:(int)fps
+                           bitrate:(int)bps
+           useInterfaceOrientation:(BOOL)useInterfaceOrientation
+                       cameraState:(VCCameraState) cameraState
+                         onlyAudio:(BOOL) onlyAudio
                         aspectMode:(VCAspectMode) aspectMode;
 
 // -----------------------------------------------------------------------------
