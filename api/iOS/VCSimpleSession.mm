@@ -468,7 +468,7 @@ namespace videocore { namespace simpleApi {
                            bitrate:(int)bps
            useInterfaceOrientation:(BOOL)useInterfaceOrientation
                        cameraState:(VCCameraState) cameraState
-                         onlyAudio:onlyAudio
+                         onlyAudio:(BOOL)onlyAudio
                         aspectMode:(VCAspectMode)aspectMode
 {
     if (( self = [super init] ))
@@ -776,15 +776,15 @@ namespace videocore { namespace simpleApi {
 #ifdef TARGET_OS_IPHONE
     
     
-    {  if(!_onlyAudio) {
+    {
         // Add video mixer
         m_videoMixer = std::make_shared<videocore::iOS::GLESVideoMixer>(self.videoSize.width,
                                                                         self.videoSize.height,
                                                                         frameDuration);
-    }
+        
     }
     
-    {if(!_onlyAudio) {
+    {
         auto videoSplit = std::make_shared<videocore::Split>();
         
         m_videoSplit = videoSplit;
@@ -802,7 +802,7 @@ namespace videocore { namespace simpleApi {
         
         m_videoMixer->setOutput(videoSplit);
         
-    }
+        
     }
     
     
@@ -853,10 +853,10 @@ namespace videocore { namespace simpleApi {
         
         m_audioMixer->setEpoch(epoch);
         m_audioMixer->start();
-        if(!_onlyAudio) {
-            m_videoMixer->setEpoch(epoch);
-            m_videoMixer->start();
-        }
+        
+        m_videoMixer->setEpoch(epoch);
+        m_videoMixer->start();
+        
         
     }
 }
@@ -867,39 +867,39 @@ namespace videocore { namespace simpleApi {
         // Add encoders
         
         m_aacEncoder = std::make_shared<videocore::iOS::AACEncode>(self.audioSampleRate, self.audioChannelCount, 96000);
-        if(!_onlyAudio) {
-            if(SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
-                // If >= iOS 8.0 use the VideoToolbox encoder that does not write to disk.
-                m_h264Encoder = std::make_shared<videocore::Apple::H264Encode>(self.videoSize.width,
-                                                                               self.videoSize.height,
-                                                                               self.fps,
-                                                                               self.bitrate,
-                                                                               false,
-                                                                               ctsOffset);
-            } else {
-                m_h264Encoder =std::make_shared<videocore::iOS::H264Encode>(self.videoSize.width,
-                                                                            self.videoSize.height,
-                                                                            self.fps,
-                                                                            self.bitrate);
-            }
+        
+        if(SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
+            // If >= iOS 8.0 use the VideoToolbox encoder that does not write to disk.
+            m_h264Encoder = std::make_shared<videocore::Apple::H264Encode>(self.videoSize.width,
+                                                                           self.videoSize.height,
+                                                                           self.fps,
+                                                                           self.bitrate,
+                                                                           false,
+                                                                           ctsOffset);
+        } else {
+            m_h264Encoder =std::make_shared<videocore::iOS::H264Encode>(self.videoSize.width,
+                                                                        self.videoSize.height,
+                                                                        self.fps,
+                                                                        self.bitrate);
         }
+        
         m_audioMixer->setOutput(m_aacEncoder);
-        if(!_onlyAudio) {
-            m_videoSplit->setOutput(m_h264Encoder);
-        }
+        
+        m_videoSplit->setOutput(m_h264Encoder);
+        
     }
     {
         m_aacSplit = std::make_shared<videocore::Split>();
-        if(!_onlyAudio) { m_h264Split = std::make_shared<videocore::Split>(); }
+        m_h264Split = std::make_shared<videocore::Split>();
         m_aacEncoder->setOutput(m_aacSplit);
-        if(!_onlyAudio) {m_h264Encoder->setOutput(m_h264Split);}
+        m_h264Encoder->setOutput(m_h264Split);
         
     }
     {
-        if(!_onlyAudio) { m_h264Packetizer = std::make_shared<videocore::rtmp::H264Packetizer>(ctsOffset);}
+        m_h264Packetizer = std::make_shared<videocore::rtmp::H264Packetizer>(ctsOffset);
         m_aacPacketizer = std::make_shared<videocore::rtmp::AACPacketizer>(self.audioSampleRate, self.audioChannelCount, ctsOffset);
         
-        if(!_onlyAudio) { m_h264Split->setOutput(m_h264Packetizer);}
+        m_h264Split->setOutput(m_h264Packetizer);
         m_aacSplit->setOutput(m_aacPacketizer);
         
     }
@@ -914,7 +914,7 @@ namespace videocore { namespace simpleApi {
     }
     
     
-    if(!_onlyAudio) {  m_h264Packetizer->setOutput(m_outputSession);}
+    m_h264Packetizer->setOutput(m_outputSession);
     m_aacPacketizer->setOutput(m_outputSession);
     
     
